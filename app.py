@@ -40,7 +40,7 @@ def scrape_data(id, username, password, is_lecturer):
             else:
                 location = columns[4].text.strip()
                 group=columns[5].text.strip()
-            time=columns[2].text.strip()
+            time=columns[1].text.strip()
             day_of_week, st_en=time.split(' ')
             if "(" in time:
                     time_info, duration_str = time.split("(")
