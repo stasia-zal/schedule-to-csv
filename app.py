@@ -16,8 +16,25 @@ def scrape_data(id, username, password, is_lecturer):
         return None, "Login Failed: Check Credentials"
     
     soup = BeautifulSoup(response.text, 'html.parser')
-    # ... (Your parsing logic from previous steps) ...
-    return excel_data, None
+    
+    # --- THIS IS THE MISSING PART ---
+    excel_data = []  # Initialize the list here!
+    
+    table_rows = soup.find_all('tr')
+    for row in table_rows[1:]:
+        columns = row.find_all('td')
+        if len(columns) >= 5:
+            # Your logic to extract data from columns...
+            entry = {
+                "Date": columns[0].text.strip(),
+                "Time": columns[1].text.strip(),
+                "Subject": columns[2].text.strip(),
+                "Type": columns[3].text.strip(),
+                "Location": columns[4].text.strip()
+            }
+            excel_data.append(entry) # Add the entry to the list
+            
+    return excel_data, None # Now excel_data exists!
 
 # -- STREAMLIT UI --
 st.set_page_config(page_title="UEK Schedule Exporter")
