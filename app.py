@@ -51,9 +51,6 @@ def scrape_data(id, username, password, is_lecturer):
 # -- STREAMLIT UI --
 st.set_page_config(page_title="UEK Schedule Exporter", page_icon="🎓")
 
-# I moved your picture to the top so it acts like a nice header banner!
-st.image("picture.png", caption="UEK Schedule Exporter", use_container_width=True)
-
 st.title("🎓 UEK Schedule to Excel")
 
 st.markdown("""
@@ -102,3 +99,5 @@ if st.button("Generate Schedule"):
                 data=buffer.getvalue(),
                 file_name=f"uek_schedule_{group_id}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+st.image("picture.png", caption="UEK Schedule Exporter", use_container_width=True)
