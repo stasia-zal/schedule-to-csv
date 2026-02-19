@@ -1,9 +1,8 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
-import csv
 import io
-import codecs
+import pandas as pd # Replaced csv and codecs with pandas
 
 # -- YOUR EXISTING SCRAPING LOGIC --
 def scrape_data(id, username, password, is_lecturer):
@@ -18,32 +17,47 @@ def scrape_data(id, username, password, is_lecturer):
     
     soup = BeautifulSoup(response.text, 'html.parser')
     
-    # --- THIS IS THE MISSING PART ---
-    excel_data = []  # Initialize the list here!
+    excel_data = []
     
     table_rows = soup.find_all('tr')
     for row in table_rows[1:]:
         columns = row.find_all('td')
-        if len(columns) >= 6:
-            # Your logic to extract data from columns...
+        
+        # Student view has 6+ columns, Lecturer view has 5+ columns
+        if (not is_lecturer and len(columns) >= 6) or (is_lecturer and len(columns) >= 5):
+            date_str = columns[0].text.strip()
+            if not date_str: continue # Skip empty rows
+            
+            # Logic for Group vs Lecturer tables
+            if not is_lecturer:
+                teacher = columns[4].text.strip()
+                location = columns[5].text.strip()
+            else:
+                teacher = "N/A"
+                location = columns[4].text.strip()
+            
             entry = {
-                "Date": columns[0].text.strip(),
+                "Date": date_str,
                 "Time": columns[1].text.strip(),
                 "Subject": columns[2].text.strip(),
                 "Type": columns[3].text.strip(),
-                "Teacher": columns[4].text.strip(),
-                "Location": columns[5].text.strip()
+                "Teacher": teacher,
+                "Location": location
             }
-            excel_data.append(entry) # Add the entry to the list
+            excel_data.append(entry)
             
-    return excel_data, None # Now excel_data exists!
+    return excel_data, None
 
 # -- STREAMLIT UI --
-st.set_page_config(page_title="UEK Schedule Exporter")
+st.set_page_config(page_title="UEK Schedule Exporter", page_icon="🎓")
+
+# I moved your picture to the top so it acts like a nice header banner!
+st.image("picture.png", caption="UEK Schedule Exporter", use_container_width=True)
+
 st.title("🎓 UEK Schedule to Excel")
 
 st.markdown("""
-Enter your ID and choose your type to generate a downloadable Excel/CSV file.
+Enter your ID and choose your type to generate a downloadable Excel file (.xlsx).
 """)
 
 # User Inputs
@@ -51,8 +65,6 @@ user_type = st.radio("I am a:", ["Student/Group", "Lecturer"])
 group_id = st.text_input("Enter ID (e.g., 188141)", placeholder="Look at your plan URL for 'id='")
 
 if st.button("Generate Schedule"):
-    # We use a 'service' account login stored in YOUR GitHub Secrets
-    # so the public users don't need their own login to use the app
     username = st.secrets["UEK_LOGIN"]
     password = st.secrets["UEK_PASSWORD"]
     
@@ -63,28 +75,30 @@ if st.button("Generate Schedule"):
         
         if error:
             st.error(error)
-        if data:
-            # 1. Use BytesIO for raw binary data instead of StringIO
+        elif not data:
+            st.warning("No schedule found for this ID.")
+        else:
+            # 1. Convert the list into a Pandas DataFrame
+            df = pd.DataFrame(data)
+            
+            # 2. Create a memory buffer for the Excel file
             buffer = io.BytesIO()
             
-            # 2. Add the UTF-8 BOM manually at the very start (Excel's secret key)
-            buffer.write(codecs.BOM_UTF8)
+            # 3. Create the true .xlsx file using openpyxl
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Schedule')
+                
+                # Auto-adjust column widths so it looks perfect instantly
+                for column in df:
+                    column_width = max(df[column].astype(str).map(len).max(), len(column))
+                    col_idx = df.columns.get_loc(column)
+                    writer.sheets['Schedule'].column_dimensions[chr(65 + col_idx)].width = column_width + 2
             
-            # 3. Create a wrapper that allows the csv writer to work with bytes
-            wrapper = io.TextIOWrapper(buffer, encoding='utf-8', newline='', write_through=True)
+            st.success("Schedule successfully formatted!")
             
-            # 4. Write the CSV normally
-            writer = csv.DictWriter(wrapper, fieldnames=data[0].keys(), delimiter=';')
-            writer.writeheader()
-            writer.writerows(data)
-            
-            # 5. Prepare for download
-            wrapper.detach() # Stop the wrapper from closing the underlying buffer
-            
+            # 4. Provide the Download Button
             st.download_button(
-                label="📥 Download for Excel",
+                label="📥 Download Excel File (.xlsx)",
                 data=buffer.getvalue(),
-                file_name=f"uek_schedule_{group_id}.csv",
-                mime="text/csv"
-            )
-st.image("picture.png", caption="UEK Schedule Exporter", width=700)
+                file_name=f"uek_schedule_{group_id}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
