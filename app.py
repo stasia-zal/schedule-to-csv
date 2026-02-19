@@ -45,8 +45,6 @@ def scrape_data(id, username, password, is_lecturer):
             if "(" in time:
                     time_info, duration_str = time.split("(")
                     start,end=time_info.split('-')
-            start=1
-            end=3
             print(day_of_week)
             entry = {
                 "Date": date_str,
