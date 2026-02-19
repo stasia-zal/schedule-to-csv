@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import csv
 import io
+import codecs
 
 # -- YOUR EXISTING SCRAPING LOGIC --
 def scrape_data(id, username, password, is_lecturer):
