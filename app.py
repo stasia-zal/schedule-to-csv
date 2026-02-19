@@ -2,9 +2,8 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import io
-import pandas as pd # Replaced csv and codecs with pandas
+import pandas as pd
 
-# -- YOUR EXISTING SCRAPING LOGIC --
 def scrape_data(id, username, password, is_lecturer):
     session = requests.Session()
     session.auth = (username, password)
@@ -15,48 +14,65 @@ def scrape_data(id, username, password, is_lecturer):
     if response.status_code == 401:
         return None, "Login Failed: Check Credentials"
     
-    # --- ADD THIS EXACT LINE ---
     response.encoding = 'utf-8'
-    # ---------------------------
-    
-
     soup = BeautifulSoup(response.text, 'html.parser')
     
     excel_data = []
-    
     table_rows = soup.find_all('tr')
+    
     for row in table_rows[1:]:
         columns = row.find_all('td')
         
-        # Student view has 6+ columns, Lecturer view has 5+ columns
-        if (not is_lecturer and len(columns) >= 6) or (is_lecturer and len(columns) >= 6):
+        if len(columns) >= 5: 
             date_str = columns[0].text.strip()
-            if not date_str: continue # Skip empty rows
+            if not date_str: continue 
             
-            # Logic for Group vs Lecturer tables
-            if not is_lecturer:
+            teacher = ""
+            group = ""
+            location = ""
+            day_of_week = ""
+            start = ""
+            end = ""
+            
+            if not is_lecturer and len(columns) >= 6:
                 teacher = columns[4].text.strip()
                 location = columns[5].text.strip()
-            else:
+            elif is_lecturer and len(columns) >= 6:
                 location = columns[4].text.strip()
-                group=columns[5].text.strip()
-            time=columns[1].text.strip()
-            day_of_week, st_en=time.split(' ')
-            if "(" in time:
-                    time_info, duration_str = time.split("(")
-                    start,end=time_info.split('-')
-            print(day_of_week)
+                group = columns[5].text.strip()
+            elif is_lecturer and len(columns) == 5:
+                location = columns[4].text.strip()
+            
+            raw_time = columns[1].text.strip() 
+            clean_time = raw_time.split('(')[0].strip() 
+            
+            if " " in clean_time:
+                day_of_week, time_range = clean_time.split(' ', 1)
+            else:
+                time_range = clean_time
+                
+            if "-" in time_range:
+                start, end = time_range.split('-', 1)
+            else:
+                start = time_range
+
+            # Build the base dictionary shared by both
             entry = {
                 "Date": date_str,
                 "Day": day_of_week,
-                "Starting": start,
-                "Ending": end,
+                "Starting": start.strip(),
+                "Ending": end.strip(),
                 "Subject": columns[2].text.strip(),
                 "Type": columns[3].text.strip(),
-                "Teacher": teacher if not is_lecturer else None,
-                "Location": location,
-                "Group": group if is_lecturer else None
+                "Location": location
             }
+            
+            # Strictly assign the unique column based on user type
+            if is_lecturer:
+                entry["Group"] = group
+            else:
+                entry["Teacher"] = teacher
+                
             excel_data.append(entry)
             
     return excel_data, None
@@ -64,21 +80,18 @@ def scrape_data(id, username, password, is_lecturer):
 # -- STREAMLIT UI --
 st.set_page_config(page_title="UEK Schedule Exporter", page_icon="🎓")
 
+st.image("picture.png", caption="UEK Schedule Exporter", use_container_width=True)
+
 st.title("🎓 UEK Schedule to Excel")
+st.markdown("Enter your ID to generate a downloadable Excel file (.xlsx).")
 
-st.markdown("""
-Enter your ID and choose your type to generate a downloadable Excel file (.xlsx).
-""")
-
-# User Inputs
 user_type = st.radio("I am a:", ["Student/Group", "Lecturer"])
-group_id = st.text_input("Enter ID (e.g., 188141)", placeholder="Look at your plan URL for 'id='")
+group_id = st.text_input("Enter ID (e.g., 188141)")
 
 if st.button("Generate Schedule"):
     username = st.secrets["UEK_LOGIN"]
     password = st.secrets["UEK_PASSWORD"]
-    
-    is_lecturer = True if user_type == "Lecturer" else False
+    is_lecturer = (user_type == "Lecturer")
     
     with st.spinner("Scraping UEK Portal..."):
         data, error = scrape_data(group_id, username, password, is_lecturer)
@@ -88,29 +101,25 @@ if st.button("Generate Schedule"):
         elif not data:
             st.warning("No schedule found for this ID.")
         else:
-            # 1. Convert the list into a Pandas DataFrame
             df = pd.DataFrame(data)
-            
-            # 2. Create a memory buffer for the Excel file
             buffer = io.BytesIO()
             
-            # 3. Create the true .xlsx file using openpyxl
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='Schedule')
                 
-                # Auto-adjust column widths so it looks perfect instantly
+                workbook = writer.book
+                worksheet = writer.sheets['Schedule']
+                
                 for column in df:
                     column_width = max(df[column].astype(str).map(len).max(), len(column))
                     col_idx = df.columns.get_loc(column)
-                    writer.sheets['Schedule'].column_dimensions[chr(65 + col_idx)].width = column_width + 2
+                    worksheet.column_dimensions[chr(65 + col_idx)].width = column_width + 2
             
             st.success("Schedule successfully formatted!")
             
-            # 4. Provide the Download Button
             st.download_button(
                 label="📥 Download Excel File (.xlsx)",
                 data=buffer.getvalue(),
                 file_name=f"uek_schedule_{group_id}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-st.image("picture.png", caption="UEK Schedule Exporter", use_container_width=True)
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
