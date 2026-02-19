@@ -79,4 +79,4 @@ if st.button("Generate Schedule"):
                 file_name=f"schedule_{group_id}.csv",
                 mime="text/csv"
     )
-st.image("picture.png", caption="UEK Schedule Exporter", width=40%)
+st.image("picture.png", caption="UEK Schedule Exporter", width=600)
