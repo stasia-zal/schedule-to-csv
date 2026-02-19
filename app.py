@@ -15,6 +15,11 @@ def scrape_data(id, username, password, is_lecturer):
     if response.status_code == 401:
         return None, "Login Failed: Check Credentials"
     
+    # --- ADD THIS EXACT LINE ---
+    response.encoding = 'utf-8'
+    # ---------------------------
+    
+
     soup = BeautifulSoup(response.text, 'html.parser')
     
     excel_data = []
