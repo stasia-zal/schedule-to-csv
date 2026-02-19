@@ -1,8 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 import os
-import csv
 from dotenv import load_dotenv
+import pandas as pd
 
 # 1. Load credentials from .env
 load_dotenv()
@@ -75,15 +75,26 @@ def run_update():
     data = scrape_to_excel(my_group_id, session)
 
     if data:
-        filename = 'uek_schedule.csv'
-        # utf-8-sig makes Polish characters work in Excel
-        with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
-            writer = csv.DictWriter(f, fieldnames=data[0].keys(), delimiter=';')
-            writer.writeheader()
-            writer.writerows(data)
-        print(f"Done! Created {filename}")
+        # 1. Convert your list of dictionaries into a Pandas Table (DataFrame)
+        df = pd.DataFrame(data)
+        
+        # 2. Define the filename
+        filename = f"uek_schedule_{my_group_id}.xlsx"
+        
+        # 3. Use the ExcelWriter to create a real .xlsx file directly on your computer
+        with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Schedule')
+            
+            # Auto-adjust columns width for perfect formatting
+            for column in df:
+                column_width = max(df[column].astype(str).map(len).max(), len(column))
+                col_idx = df.columns.get_loc(column)
+                # chr(65) is 'A', so this maps 0->A, 1->B, 2->C, etc.
+                writer.sheets['Schedule'].column_dimensions[chr(65 + col_idx)].width = column_width + 2
+                
+        print(f"Success! Saved beautifully formatted Excel file: {filename}")
     else:
-        print("No data found. Check your Group ID or credentials.")
+        print("No data found.")
 
 if __name__ == "__main__":
     run_update()
