@@ -86,7 +86,7 @@ st.title("🎓 UEK Schedule to Excel")
 st.markdown("Enter your ID to generate a downloadable Excel file (.xlsx).")
 
 user_type = st.radio("I am a:", ["Student/Group", "Lecturer"])
-group_id = st.text_input("Enter ID (e.g., 188141)"), placeholder="Look at your plan URL for 'id=...'"
+group_id = st.text_input("Enter ID (e.g., 188141)", placeholder="Look at your plan URL for 'id=...'")
 
 if st.button("Generate Schedule"):
     username = st.secrets["UEK_LOGIN"]
