@@ -24,14 +24,15 @@ def scrape_data(id, username, password, is_lecturer):
     table_rows = soup.find_all('tr')
     for row in table_rows[1:]:
         columns = row.find_all('td')
-        if len(columns) >= 5:
+        if len(columns) >= 6:
             # Your logic to extract data from columns...
             entry = {
                 "Date": columns[0].text.strip(),
                 "Time": columns[1].text.strip(),
                 "Subject": columns[2].text.strip(),
                 "Type": columns[3].text.strip(),
-                "Location": columns[4].text.strip()
+                "Teacher": columns[4].text.strip(),
+                "Location": columns[5].text.strip()
             }
             excel_data.append(entry) # Add the entry to the list
             
@@ -63,21 +64,27 @@ if st.button("Generate Schedule"):
         if error:
             st.error(error)
         if data:
-            # 1. Use a StringIO buffer
-            output = io.StringIO()
+            # 1. Use BytesIO for raw binary data instead of StringIO
+            buffer = io.BytesIO()
             
-            # 2. Write the CSV
-            writer = csv.DictWriter(output, fieldnames=data[0].keys(), delimiter=';')
+            # 2. Add the UTF-8 BOM manually at the very start (Excel's secret key)
+            buffer.write(codecs.BOM_UTF8)
+            
+            # 3. Create a wrapper that allows the csv writer to work with bytes
+            wrapper = io.TextIOWrapper(buffer, encoding='utf-8', newline='', write_through=True)
+            
+            # 4. Write the CSV normally
+            writer = csv.DictWriter(wrapper, fieldnames=data[0].keys(), delimiter=';')
             writer.writeheader()
             writer.writerows(data)
             
-            # 3. THE FIX: Encode as 'utf-8-sig' specifically for Excel
-            excel_ready_data = output.getvalue().encode('utf-8-sig')
-
+            # 5. Prepare for download
+            wrapper.detach() # Stop the wrapper from closing the underlying buffer
+            
             st.download_button(
                 label="📥 Download for Excel",
-                data=excel_ready_data,
-                file_name=f"schedule_{group_id}.csv",
+                data=buffer.getvalue(),
+                file_name=f"uek_schedule_{group_id}.csv",
                 mime="text/csv"
-    )
+            )
 st.image("picture.png", caption="UEK Schedule Exporter", width=700)
