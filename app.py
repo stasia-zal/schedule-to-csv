@@ -29,7 +29,7 @@ def scrape_data(id, username, password, is_lecturer):
         columns = row.find_all('td')
         
         # Student view has 6+ columns, Lecturer view has 5+ columns
-        if (not is_lecturer and len(columns) >= 6) or (is_lecturer and len(columns) >= 5):
+        if (not is_lecturer and len(columns) >= 6) or (is_lecturer and len(columns) >= 6):
             date_str = columns[0].text.strip()
             if not date_str: continue # Skip empty rows
             
@@ -38,16 +38,26 @@ def scrape_data(id, username, password, is_lecturer):
                 teacher = columns[4].text.strip()
                 location = columns[5].text.strip()
             else:
-                teacher = "N/A"
                 location = columns[4].text.strip()
-            
+                group=columns[5].text.strip()
+            time=columns[2].text.strip()
+            day_of_week, st_en=time.split(' ')
+            if "(" in time:
+                    time_info, duration_str = time.split("(")
+                    start,end=time_info.split('-')
+            start=1
+            end=3
+            print(day_of_week)
             entry = {
                 "Date": date_str,
-                "Time": columns[1].text.strip(),
+                "Day": day_of_week,
+                "Starting": start,
+                "Ending": end,
                 "Subject": columns[2].text.strip(),
                 "Type": columns[3].text.strip(),
-                "Teacher": teacher,
-                "Location": location
+                "Teacher": teacher if not is_lecturer else None,
+                "Location": location,
+                "Group": group if is_lecturer else None
             }
             excel_data.append(entry)
             
