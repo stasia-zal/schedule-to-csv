@@ -46,7 +46,7 @@ Enter your ID and choose your type to generate a downloadable Excel/CSV file.
 
 # User Inputs
 user_type = st.radio("I am a:", ["Student/Group", "Lecturer"])
-group_id = st.text_input("Enter ID (e.g., 252671)", placeholder="Look at your plan URL for 'id='")
+group_id = st.text_input("Enter ID (e.g., 188141)", placeholder="Look at your plan URL for 'id='")
 
 if st.button("Generate Schedule"):
     # We use a 'service' account login stored in YOUR GitHub Secrets
@@ -61,17 +61,22 @@ if st.button("Generate Schedule"):
         
         if error:
             st.error(error)
-        elif data:
-            # Convert list to CSV string in memory
+        if data:
+            # 1. Use a StringIO buffer
             output = io.StringIO()
+            
+            # 2. Write the CSV
             writer = csv.DictWriter(output, fieldnames=data[0].keys(), delimiter=';')
             writer.writeheader()
             writer.writerows(data)
             
-            st.success("Schedule Ready!")
+            # 3. THE FIX: Encode as 'utf-8-sig' specifically for Excel
+            excel_ready_data = output.getvalue().encode('utf-8-sig')
+
             st.download_button(
                 label="📥 Download for Excel",
-                data=output.getvalue().encode('utf-8-sig'),
+                data=excel_ready_data,
                 file_name=f"schedule_{group_id}.csv",
                 mime="text/csv"
-            )
+    )
+st.image("picture.png", caption="UEK Schedule Exporter", width=150)
